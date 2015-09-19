@@ -1,25 +1,123 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Peer Assignment 1"
+output: html_document
 ---
 
+**What is the mean total number of steps taken per day?**
 
-## Loading and preprocessing the data
+```{r, echo=TRUE}
+
+#Loading and preprocessing the data
+
+unzip(zipfile="activity.zip")
+
+activity <- read.csv("activity.csv")
+
+# remove NA values
+
+activity_nona <- activity[complete.cases(activity),]
+
+mydates <- as.Date(activity_nona$date, format = "%Y-%m-%d")
+
+activity_nona$date <- mydates
+
+totalsteps <- aggregate(activity_nona$steps~activity_nona$date, FUN=sum)
+
+colnames(totalsteps) <- c("Date","Steps")
+
+stepshist <- hist(totalsteps$Steps, main="Histogram of Total Steps", xlab="Total Steps")
+
+mean(totalsteps$Steps)
+median(totalsteps$Steps)
+```
 
 
 
-## What is mean total number of steps taken per day?
+**What is the average daily activity pattern?**
+
+```{r, echo=TRUE}
+
+avgsteps_interval <- aggregate(activity_nona$steps~activity_nona$interval,FUN=mean)
+colnames(avgsteps_interval) <- c("Interval","Avg_Steps")
+
+plot(avgsteps_interval$Interval, avgsteps_interval$Avg_Steps,type="l",main="Average Steps by Interval",xlab="Interval",ylab="Average Steps")
+
+which.max(avgsteps_interval$Avg_Steps)
+104
+avgsteps_interval$Interval[104]
+```
 
 
 
-## What is the average daily activity pattern?
+**Inputting missing values**
+
+```{r, echo=TRUE}
+
+sum(is.na(activity$steps))
+
+# I will be replacing the NAs with the average value for each corresponding interval 
+# Find index of all NA values in dataframe
+NAindex <- which(is.na(activity$steps))
+
+# Store corresponding average Intervals in variable NAindexInterval
+NAindexInterval <- activity$interval[NAindex]
+
+# Place the Intervals into the Activity dataframe
+activity$steps[NAindex] <- avgsteps_interval$Avg_Steps[match(NAindexInterval,avgsteps_interval$Interval)]
+
+totalsteps2 <- aggregate(activity$steps~activity$date, FUN=sum)
+colnames(totalsteps2) <- c("Date","Steps")
+stepshist2 <- hist(totalsteps2$Steps, main="Histogram of Total Steps", xlab="Total Steps")
+
+mean(totalsteps2$Steps)
+median(totalsteps2$Steps)
+
+#The mean stayed the same but the median changed so that it now equals the mean. Adding the missing values did not discernibly change the results of the daily total number of steps.
+```
 
 
+**Are there differences in activity patterns between weekdays and weekends?**
+```{r, echo=TRUE}
 
-## Imputing missing values
+Dates <- as.Date(activity$date,"%Y-%m-%d")
 
+weekendLogic <- grepl("Saturday|Sunday",weekdays(Dates))
 
+weekendIndex <- which(weekendLogic)
 
-## Are there differences in activity patterns between weekdays and weekends?
+type <- 1:17568
+
+#create columns to fill in factor variable “weekday” or “weekend”
+activity2 <- cbind(activity,type)
+
+activity2$type[weekendIndex] <- "Weekend"
+
+activity2$type[!weekendIndex] <- "Weekday"
+
+weekdayLogic <- grepl("Monday|Tuesday|Wednesday|Thursday|Friday",weekdays(Dates))
+
+weekdayIndex <- which(weekdayLogic)
+
+activity2$type[weekdayIndex] <- "Weekday"
+
+#Create dataframe for just weekday rows
+WeekdayRows <- subset(activity2, type=="Weekday")
+
+#Get average steps for weekdays
+AvgWeekday <- aggregate(WeekdayRows$steps~WeekdayRows$interval,FUN=mean)
+
+#Create dataframe for weekend rows
+WeekendRows <- subset(activity2, type=="Weekend")
+
+#Get average steps for weekends
+AvgWeekend <- aggregate(WeekendRows$steps~WeekendRows$interval,FUN=mean)
+
+colnames(AvgWeekday) <- c("Interval","Steps")
+colnames(AvgWeekend) <- c("Interval","Steps")
+
+par(mfrow=c(2,1))
+
+plot(AvgWeekend$Interval,AvgWeekend$Steps,type="l",main="weekend",xlab="Interval",ylab="Number of steps")
+
+plot(AvgWeekday$Interval,AvgWeekday$Steps,type="l",main="weekday",xlab="Interval",ylab="Number of steps")
+```
